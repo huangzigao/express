@@ -1,7 +1,16 @@
 const taskRepository = require('../repositories/task.repository');
+const categoryService = require('./category.service');
 const { badRequest, forbidden, notFound } = require('../utils/app-error');
 
 const TASK_STATUSES = ['TODO', 'IN_PROGRESS', 'DONE'];
+const TASK_PRIORITIES = {
+  1: 'LOW',
+  2: 'MEDIUM',
+  3: 'HIGH',
+  LOW: 'LOW',
+  MEDIUM: 'MEDIUM',
+  HIGH: 'HIGH'
+};
 
 function normalizeTaskTitle(title) {
   return String(title || '').trim();
@@ -29,11 +38,22 @@ function assertTaskPriority(priority) {
     return;
   }
 
-  const value = Number(priority);
+  const value = normalizeTaskPriority(priority);
 
-  if (!Number.isInteger(value) || value < 1 || value > 3) {
+  if (!value) {
     throw badRequest('任务优先级非法', 'INVALID_TASK_PRIORITY');
   }
+}
+
+function normalizeTaskPriority(priority) {
+  if (priority === undefined || priority === null || priority === '') {
+    return null;
+  }
+
+  const rawValue =
+    typeof priority === 'string' ? priority.trim().toUpperCase() : Number(priority);
+
+  return TASK_PRIORITIES[rawValue] || null;
 }
 
 function toSafeTask(task) {
@@ -43,8 +63,9 @@ function toSafeTask(task) {
     description: task.description,
     status: task.status,
     priority: task.priority,
-    dueDate: task.dueDate,
+    dueDate: task.dueAt,
     userId: task.userId,
+    category: task.category ? categoryService.toSafeCategory(task.category) : null,
     createdAt: task.createdAt,
     updatedAt: task.updatedAt
   };
@@ -60,7 +81,7 @@ function assertTaskOwnership(task, userId) {
   }
 }
 
-async function createTask({ userId, title, description, status, priority, dueDate }) {
+async function createTask({ userId, title, description, status, priority, dueDate, categoryId }) {
   const normalizedTitle = normalizeTaskTitle(title);
 
   if (!normalizedTitle) {
@@ -68,23 +89,33 @@ async function createTask({ userId, title, description, status, priority, dueDat
   }
 
   const normalizedStatus = status ? normalizeTaskStatus(status) : 'TODO';
+  const normalizedPriority = priority === undefined || priority === null ? 'MEDIUM' : normalizeTaskPriority(priority);
   assertTaskStatus(normalizedStatus);
   assertTaskPriority(priority);
 
+  if (!normalizedPriority) {
+    throw badRequest('任务优先级非法', 'INVALID_TASK_PRIORITY');
+  }
+
+  if (categoryId) {
+    await categoryService.ensureCategoryBelongsToUser(categoryId, userId);
+  }
+
   const task = await taskRepository.createTask({
     userId,
+    categoryId: categoryId || null,
     title: normalizedTitle,
     description: normalizeTaskDescription(description),
     status: normalizedStatus,
-    priority: priority === undefined || priority === null ? 2 : Number(priority),
-    dueDate: dueDate || null
+    priority: normalizedPriority,
+    dueAt: dueDate || null
   });
 
   return toSafeTask(task);
 }
 
 async function listTasks(userId) {
-  const tasks = await taskRepository.listTasksByUserId(userId);
+  const tasks = await taskRepository.findTasksByUserId({ userId });
   return tasks.map(toSafeTask);
 }
 
@@ -110,9 +141,9 @@ async function updateTask(userId, taskId, payload) {
     payload.status !== undefined ? normalizeTaskStatus(payload.status) : task.status;
   const nextPriority =
     payload.priority !== undefined && payload.priority !== null
-      ? Number(payload.priority)
+      ? normalizeTaskPriority(payload.priority)
       : task.priority;
-  const nextDueDate = payload.dueDate !== undefined ? payload.dueDate || null : task.dueDate;
+  const nextDueDate = payload.dueDate !== undefined ? payload.dueDate || null : task.dueAt;
 
   if (!nextTitle) {
     throw badRequest('任务标题不能为空', 'TASK_TITLE_REQUIRED');
@@ -121,12 +152,30 @@ async function updateTask(userId, taskId, payload) {
   assertTaskStatus(nextStatus);
   assertTaskPriority(nextPriority);
 
-  const updatedTask = await taskRepository.updateTask(taskId, {
-    title: nextTitle,
-    description: nextDescription,
-    status: nextStatus,
-    priority: nextPriority,
-    dueDate: nextDueDate
+  if (payload.priority !== undefined && payload.priority !== null && !nextPriority) {
+    throw badRequest('任务优先级非法', 'INVALID_TASK_PRIORITY');
+  }
+
+  let nextCategoryId = task.categoryId;
+
+  if (payload.categoryId !== undefined) {
+    nextCategoryId = payload.categoryId || null;
+
+    if (nextCategoryId) {
+      await categoryService.ensureCategoryBelongsToUser(nextCategoryId, userId);
+    }
+  }
+
+  const updatedTask = await taskRepository.updateTaskById({
+    id: taskId,
+    data: {
+      title: nextTitle,
+      description: nextDescription,
+      status: nextStatus,
+      priority: nextPriority,
+      dueAt: nextDueDate,
+      categoryId: nextCategoryId
+    }
   });
 
   return toSafeTask(updatedTask);
@@ -137,7 +186,7 @@ async function deleteTask(userId, taskId) {
 
   assertTaskOwnership(task, userId);
 
-  await taskRepository.deleteTask(taskId);
+  await taskRepository.deleteTaskById(taskId);
 
   return toSafeTask(task);
 }
