@@ -1,5 +1,5 @@
 const taskService = require('../services/task.service');
-const asyncHandler = require('../utils/async-handler');
+const asyncHandler = require('../utils/async-handle');
 const { success } = require('../utils/response');
 
 const create = asyncHandler(async (req, res) => {
