@@ -1,0 +1,50 @@
+# Dependencies
+node_modules/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Test and coverage output
+coverage/
+.nyc_output/
+jest-stare/
+
+# Build output
+dist/
+build/
+out/
+
+# Prisma local database and generated artifacts
+prisma/*.db
+prisma/*.db-journal
+prisma/generated/
+
+# Runtime files
+uploads/
+tmp/
+temp/
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Operating system files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Local tooling
+.eslintcache
+.prettier-cache
