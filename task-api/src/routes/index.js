@@ -9,8 +9,7 @@ const router = express.Router();
 
 router.use('/health', healthRoutes);
 router.use('/users', userRoutes);
-router.use(authMiddleware);
-router.use('/tasks', taskRoutes);
-router.use('/categories', categoryRoutes);
+router.use('/tasks', authMiddleware, taskRoutes);
+router.use('/categories', authMiddleware, categoryRoutes);
 
 module.exports = router;

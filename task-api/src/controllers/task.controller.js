@@ -1,11 +1,11 @@
 const taskService = require('../services/task.service');
-const asyncHandler = require('../utils/async-handle');
+const asyncHandler = require('../utils/async-handler');
 const { success } = require('../utils/response');
 
 const create = asyncHandler(async (req, res) => {
   const task = await taskService.createTask({
     userId: req.user.id,
-    ...req.body
+    ...req.validated.body
   });
 
   res.status(201).json(
@@ -19,20 +19,24 @@ const create = asyncHandler(async (req, res) => {
 });
 
 const list = asyncHandler(async (req, res) => {
-  const tasks = await taskService.listTasks(req.user.id);
+  const result = await taskService.listTasks({
+    userId: req.user.id,
+    query: req.validated.query
+  });
 
   res.json(
     success({
       message: '任务列表获取成功',
       data: {
-        tasks
-      }
+        tasks: result.items
+      },
+      meta: result.meta
     })
   );
 });
 
 const detail = asyncHandler(async (req, res) => {
-  const task = await taskService.getTaskById(req.user.id, req.params.id);
+  const task = await taskService.getTaskById(req.user.id, req.validated.params.id);
 
   res.json(
     success({
@@ -45,7 +49,11 @@ const detail = asyncHandler(async (req, res) => {
 });
 
 const update = asyncHandler(async (req, res) => {
-  const task = await taskService.updateTask(req.user.id, req.params.id, req.body);
+  const task = await taskService.updateTask(
+    req.user.id,
+    req.validated.params.id,
+    req.validated.body
+  );
 
   res.json(
     success({
@@ -58,13 +66,13 @@ const update = asyncHandler(async (req, res) => {
 });
 
 const remove = asyncHandler(async (req, res) => {
-  await taskService.deleteTask(req.user.id, req.params.id);
+  await taskService.deleteTask(req.user.id, req.validated.params.id);
 
   res.json(
     success({
       message: '任务删除成功',
       data: {
-        id: req.params.id
+        id: req.validated.params.id
       }
     })
   );

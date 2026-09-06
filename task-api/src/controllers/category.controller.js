@@ -1,11 +1,11 @@
 const categoryService = require('../services/category.service');
-const asyncHandler = require('../utils/async-handle');
+const asyncHandler = require('../utils/async-handler');
 const { success } = require('../utils/response');
 
 const create = asyncHandler(async (req, res) => {
   const category = await categoryService.createCategory({
     userId: req.user.id,
-    ...req.body
+    ...req.validated.body
   });
 
   res.status(201).json(
@@ -32,7 +32,7 @@ const list = asyncHandler(async (req, res) => {
 });
 
 const detail = asyncHandler(async (req, res) => {
-  const category = await categoryService.getCategoryById(req.user.id, req.params.id);
+  const category = await categoryService.getCategoryById(req.user.id, req.validated.params.id);
 
   res.json(
     success({
@@ -45,7 +45,11 @@ const detail = asyncHandler(async (req, res) => {
 });
 
 const update = asyncHandler(async (req, res) => {
-  const category = await categoryService.updateCategory(req.user.id, req.params.id, req.body);
+  const category = await categoryService.updateCategory(
+    req.user.id,
+    req.validated.params.id,
+    req.validated.body
+  );
 
   res.json(
     success({
@@ -58,13 +62,13 @@ const update = asyncHandler(async (req, res) => {
 });
 
 const remove = asyncHandler(async (req, res) => {
-  await categoryService.removeCategory(req.user.id, req.params.id);
+  await categoryService.removeCategory(req.user.id, req.validated.params.id);
 
   res.json(
     success({
       message: '分类删除成功',
       data: {
-        id: req.params.id
+        id: req.validated.params.id
       }
     })
   );
